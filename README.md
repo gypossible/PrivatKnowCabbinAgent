@@ -21,12 +21,33 @@ NotebookLM-style app: **upload files** or **ingest URLs / web search (Tavily)**,
 
 ## Environment variables
 
-Copy [`.env.example`](.env.example) to `.env.local` and fill in:
+### 最快：不用手写变量名（Vercel）
+
+在 Vercel 项目里打开 **Integrations** → 搜索 **Supabase** → 连接你的 Supabase 项目。  
+连接成功后，会自动写入 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 等变量（本应用已支持 **publishable** 与 **anon** 两种公钥名）。  
+然后 **Redeploy** 一次即可。
+
+### 手动：只复制两个值（约 1 分钟）
+
+1. [Supabase Dashboard](https://supabase.com/dashboard) → 你的项目 → **Project Settings**（齿轮）→ **API**。  
+2. 复制 **Project URL**、**anon public** 密钥。  
+3. [Vercel](https://vercel.com) → 你的项目 → **Settings** → **Environment Variables**，新增：
+
+| Name | 粘贴内容 |
+|------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public 密钥 |
+
+勾选 **Production**（需要的话也勾选 Preview）→ Save → **Deployments** → **Redeploy**。
+
+---
+
+Copy [`.env.example`](.env.example) to `.env.local` for local dev:
 
 | Variable | Purpose |
 |----------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (browser + server with user session) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (or use `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from Vercel integration) |
 | `OPENAI_API_KEY` | Embeddings, chat (`gpt-4o-mini`), images (`dall-e-3`) |
 | `TAVILY_API_KEY` | Optional; required for search-ingest and live web snippets in chat |
 | `NEXT_PUBLIC_APP_URL` | Optional; used for redirects in production |

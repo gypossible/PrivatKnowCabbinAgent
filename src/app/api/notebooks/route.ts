@@ -1,14 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth-api";
+import { hasSupabasePublicEnv } from "@/lib/supabase/env";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
+  if (!hasSupabasePublicEnv()) {
     return NextResponse.json(
-      { error: "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY" },
+      {
+        error:
+          "Missing Supabase env: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY from Vercel integration).",
+      },
       { status: 500 },
     );
   }
