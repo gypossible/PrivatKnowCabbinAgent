@@ -3,6 +3,15 @@ import { requireUser } from "@/lib/auth-api";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return NextResponse.json(
+      { error: "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY" },
+      { status: 500 },
+    );
+  }
   const supabase = await createClient();
   const user = await requireUser(supabase);
   const { data, error } = await supabase

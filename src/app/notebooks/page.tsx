@@ -18,31 +18,72 @@ export default function NotebooksPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/notebooks");
-    if (res.status === 401) {
-      router.push("/login");
-      return;
+    try {
+      const res = await fetch("/api/notebooks", { credentials: "same-origin" });
+      if (res.status === 401) {
+        router.push("/login");
+        return;
+      }
+      const ct = res.headers.get("content-type") ?? "";
+      if (!res.ok || !ct.includes("application/json")) {
+        const text = await res.text();
+        console.error("Failed to load notebooks:", res.status, text.slice(0, 200));
+        setNotebooks([]);
+        return;
+      }
+      const json = (await res.json()) as { notebooks?: Notebook[] };
+      setNotebooks(json.notebooks ?? []);
+    } catch (e) {
+      console.error(e);
+      setNotebooks([]);
     }
-    const json = await res.json();
-    setNotebooks(json.notebooks ?? []);
-    setLoading(false);
   }, [router]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetch("/api/notebooks");
-      if (cancelled) return;
-      if (res.status === 401) {
-        router.push("/login");
-        return;
+      try {
+        setLoadError(null);
+        const res = await fetch("/api/notebooks", { credentials: "same-origin" });
+        if (cancelled) return;
+        if (res.status === 401) {
+          router.push("/login");
+          return;
+        }
+        const ct = res.headers.get("content-type") ?? "";
+        if (!res.ok || !ct.includes("application/json")) {
+          const text = await res.text();
+          console.error("Failed to load notebooks:", res.status, text.slice(0, 200));
+          if (!cancelled) {
+            setNotebooks([]);
+            setLoadError(
+              res.status === 500
+                ? "Server error — check Vercel env vars (Supabase URL & anon key) and redeploy."
+                : `Could not load notebooks (HTTP ${res.status}).`,
+            );
+          }
+          return;
+        }
+        const json = (await res.json()) as { notebooks?: Notebook[]; error?: string };
+        if (cancelled) return;
+        if (json.error) {
+          setNotebooks([]);
+          setLoadError(json.error);
+        } else {
+          setNotebooks(json.notebooks ?? []);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setNotebooks([]);
+          setLoadError("Network error while loading notebooks.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      const json = await res.json();
-      if (cancelled) return;
-      setNotebooks(json.notebooks ?? []);
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -93,6 +134,11 @@ export default function NotebooksPage() {
           <p className="mt-1 text-sm text-zinc-600">
             Upload sources, then chat with retrieval and optional images.
           </p>
+          {loadError ? (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {loadError}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"
