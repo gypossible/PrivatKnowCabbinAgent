@@ -9,10 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@mozilla/readability": "^0.6.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.3",
-    "jsdom": "^29.0.1",
+    "cheerio": "^1.2.0",
     "mammoth": "^1.12.0",
     "next": "16.2.1",
     "openai": "^6.32.0",
@@ -23,7 +22,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/jsdom": "^28.0.1",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",

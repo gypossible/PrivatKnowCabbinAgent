@@ -6,7 +6,7 @@ type RouteContext = { params: Promise<{ notebookId: string }> };
 
 export async function GET(req: Request, ctx: RouteContext) {
   const { notebookId } = await ctx.params;
-  const sessionId = req.nextUrl.searchParams.get("sessionId");
+  const sessionId = new URL(req.url).searchParams.get("sessionId");
   if (!sessionId) {
     return NextResponse.json({ error: "sessionId required" }, { status: 400 });
   }

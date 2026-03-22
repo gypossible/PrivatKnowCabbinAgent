@@ -31,8 +31,23 @@ export default function NotebooksPage() {
   }, [router]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/notebooks");
+      if (cancelled) return;
+      if (res.status === 401) {
+        router.push("/login");
+        return;
+      }
+      const json = await res.json();
+      if (cancelled) return;
+      setNotebooks(json.notebooks ?? []);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function signOut() {
     const supabase = createClient();

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
-import { extractTextFromBuffer } from "@/lib/extract";
+import { extractTextFromBuffer } from "@/lib/extract-file";
 import { ingestPlainText } from "@/lib/ingest";
 import { NextResponse } from "next/server";
 

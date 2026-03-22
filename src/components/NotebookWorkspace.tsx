@@ -29,8 +29,6 @@ type ChatMessage = {
   created_at: string;
 };
 
-type Citation = NonNullable<ChatMessage["metadata"]["citations"]>[number];
-
 export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [sessions, setSessions] = useState<{ id: string; title: string | null }[]>(

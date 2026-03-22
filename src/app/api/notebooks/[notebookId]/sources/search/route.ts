@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
-import { extractTextFromUrl } from "@/lib/extract";
+import { extractTextFromUrl } from "@/lib/extract-url";
 import { ingestPlainText } from "@/lib/ingest";
 import { tavilySearch } from "@/lib/tavily";
 import { NextResponse } from "next/server";
