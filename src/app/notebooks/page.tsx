@@ -1,6 +1,8 @@
 "use client";
 
+import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
 import { createClient } from "@/lib/supabase/client";
+import { getSupabasePublicEnvIssue } from "@/lib/supabase/env";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -14,13 +16,19 @@ type Notebook = {
 
 export default function NotebooksPage() {
   const router = useRouter();
+  const envIssue = getSupabasePublicEnvIssue();
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !envIssue);
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(envIssue);
 
   const load = useCallback(async () => {
+    if (envIssue) {
+      setNotebooks([]);
+      setLoadError(envIssue);
+      return;
+    }
     try {
       const res = await fetch("/api/notebooks", { credentials: "same-origin" });
       if (res.status === 401) {
@@ -39,25 +47,42 @@ export default function NotebooksPage() {
         }
         console.error("Failed to load notebooks:", res.status, msg);
         setNotebooks([]);
+        setLoadError(msg);
         return;
       }
       if (!ct.includes("application/json")) {
         const text = await res.text();
         console.error("Failed to load notebooks: non-JSON response", text.slice(0, 200));
         setNotebooks([]);
+        setLoadError("Unexpected response while loading notebooks.");
         return;
       }
-      const json = (await res.json()) as { notebooks?: Notebook[] };
+      const json = (await res.json()) as { notebooks?: Notebook[]; error?: string };
+      if (json.error) {
+        setNotebooks([]);
+        setLoadError(json.error);
+        return;
+      }
       setNotebooks(json.notebooks ?? []);
+      setLoadError(null);
     } catch (e) {
       console.error(e);
       setNotebooks([]);
+      setLoadError("Network error while loading notebooks.");
     }
-  }, [router]);
+  }, [envIssue, router]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (envIssue) {
+        if (!cancelled) {
+          setNotebooks([]);
+          setLoadError(envIssue);
+          setLoading(false);
+        }
+        return;
+      }
       try {
         setLoadError(null);
         const res = await fetch("/api/notebooks", { credentials: "same-origin" });
@@ -101,31 +126,55 @@ export default function NotebooksPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [envIssue, router]);
 
   async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    if (envIssue) {
+      setLoadError(envIssue);
+      return;
+    }
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/login");
+      router.refresh();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not sign out.");
+    }
   }
 
   async function createNotebook(e: React.FormEvent) {
     e.preventDefault();
+    if (envIssue) {
+      setLoadError(envIssue);
+      return;
+    }
     setCreating(true);
-    const res = await fetch("/api/notebooks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title.trim() || undefined }),
-    });
-    setCreating(false);
-    if (!res.ok) return;
-    const { notebook } = await res.json();
-    setTitle("");
-    router.push(`/notebooks/${notebook.id}`);
+    try {
+      const res = await fetch("/api/notebooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        setLoadError(json.error ?? `Could not create notebook (HTTP ${res.status}).`);
+        return;
+      }
+      const { notebook } = (await res.json()) as { notebook: Notebook };
+      setTitle("");
+      setLoadError(null);
+      router.push(`/notebooks/${notebook.id}`);
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function removeNotebook(id: string) {
+    if (envIssue) {
+      setLoadError(envIssue);
+      return;
+    }
     if (!confirm("Delete this notebook and all its data?")) return;
     await fetch(`/api/notebooks/${id}`, { method: "DELETE" });
     void load();
@@ -147,7 +196,8 @@ export default function NotebooksPage() {
           <p className="mt-1 text-sm text-zinc-600">
             Upload sources, then chat with retrieval and optional images.
           </p>
-          {loadError ? (
+          {envIssue ? <SupabaseSetupNotice className="mt-3" /> : null}
+          {loadError && loadError !== envIssue ? (
             <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               {loadError}
             </p>
@@ -156,7 +206,8 @@ export default function NotebooksPage() {
         <button
           type="button"
           onClick={() => void signOut()}
-          className="text-sm text-zinc-600 underline hover:text-zinc-900"
+          disabled={Boolean(envIssue)}
+          className="text-sm text-zinc-600 underline hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Sign out
         </button>
@@ -170,11 +221,12 @@ export default function NotebooksPage() {
           placeholder="New notebook title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          disabled={creating || Boolean(envIssue)}
           className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none ring-emerald-500/20 focus:border-emerald-600 focus:ring-2"
         />
         <button
           type="submit"
-          disabled={creating}
+          disabled={creating || Boolean(envIssue)}
           className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-60"
         >
           {creating ? "Creating…" : "New notebook"}
@@ -202,7 +254,7 @@ export default function NotebooksPage() {
             </button>
           </li>
         ))}
-        {notebooks.length === 0 ? (
+        {notebooks.length === 0 && !loadError ? (
           <li className="text-sm text-zinc-500">No notebooks yet.</li>
         ) : null}
       </ul>

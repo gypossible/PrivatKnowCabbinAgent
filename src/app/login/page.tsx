@@ -1,6 +1,8 @@
 "use client";
 
+import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
 import { createClient } from "@/lib/supabase/client";
+import { getSupabasePublicEnvIssue } from "@/lib/supabase/env";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -9,6 +11,7 @@ function LoginForm() {
   const router = useRouter();
   const search = useSearchParams();
   const next = search.get("next") || "/notebooks";
+  const envIssue = getSupabasePublicEnvIssue();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -17,19 +20,28 @@ function LoginForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
-    const supabase = createClient();
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
+    if (envIssue) {
+      setError(envIssue);
       return;
     }
-    router.push(next);
-    router.refresh();
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      router.push(next);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign in.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -40,6 +52,7 @@ function LoginForm() {
       <p className="mt-2 text-sm text-zinc-600">
         Private knowledge base — credentials are managed by Supabase Auth.
       </p>
+      {envIssue ? <SupabaseSetupNotice className="mt-4" /> : null}
       <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-zinc-800">
           Email
@@ -49,6 +62,7 @@ function LoginForm() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={loading || Boolean(envIssue)}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal outline-none ring-emerald-500/30 focus:border-emerald-600 focus:ring-2"
           />
         </label>
@@ -60,6 +74,7 @@ function LoginForm() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={loading || Boolean(envIssue)}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal outline-none ring-emerald-500/30 focus:border-emerald-600 focus:ring-2"
           />
         </label>
@@ -70,7 +85,7 @@ function LoginForm() {
         ) : null}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || Boolean(envIssue)}
           className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:opacity-60"
         >
           {loading ? "Signing in…" : "Sign in"}
@@ -87,10 +102,18 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const envIssue = getSupabasePublicEnvIssue();
+
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-md px-6 py-16 text-zinc-600">Loading…</div>
+        <div className="mx-auto max-w-md px-6 py-16">
+          {envIssue ? (
+            <SupabaseSetupNotice />
+          ) : (
+            <div className="text-zinc-600">Loading…</div>
+          )}
+        </div>
       }
     >
       <LoginForm />

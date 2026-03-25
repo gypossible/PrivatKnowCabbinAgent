@@ -1,5 +1,7 @@
 "use client";
 
+import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
+import { getSupabasePublicEnvIssue } from "@/lib/supabase/env";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -30,6 +32,7 @@ type ChatMessage = {
 };
 
 export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
+  const envIssue = getSupabasePublicEnvIssue();
   const [sources, setSources] = useState<Source[]>([]);
   const [sessions, setSessions] = useState<{ id: string; title: string | null }[]>(
     [],
@@ -53,44 +56,60 @@ export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   const panelCitations = lastAssistant?.metadata?.citations ?? [];
 
   const loadSources = useCallback(async () => {
+    if (envIssue) {
+      return;
+    }
     const res = await fetch(`/api/notebooks/${notebookId}/sources`);
     const json = await res.json();
     setSources(json.sources ?? []);
-  }, [notebookId]);
+  }, [envIssue, notebookId]);
 
   const loadSessions = useCallback(async () => {
+    if (envIssue) {
+      return;
+    }
     const res = await fetch(`/api/notebooks/${notebookId}/chat/sessions`);
     const json = await res.json();
     const list = json.sessions ?? [];
     setSessions(list);
     setSessionId((current) => current ?? list[0]?.id ?? null);
-  }, [notebookId]);
+  }, [envIssue, notebookId]);
 
   const loadMessages = useCallback(
     async (sid: string) => {
+      if (envIssue) {
+        return;
+      }
       const res = await fetch(
         `/api/notebooks/${notebookId}/chat/messages?sessionId=${encodeURIComponent(sid)}`,
       );
       const json = await res.json();
       setMessages(json.messages ?? []);
     },
-    [notebookId],
+    [envIssue, notebookId],
   );
 
   useEffect(() => {
+    if (envIssue) {
+      return;
+    }
     void loadSources();
     void loadSessions();
-  }, [loadSources, loadSessions]);
+  }, [envIssue, loadSources, loadSessions]);
 
   useEffect(() => {
+    if (envIssue) {
+      return;
+    }
     if (sessionId) void loadMessages(sessionId);
-  }, [sessionId, loadMessages]);
+  }, [envIssue, sessionId, loadMessages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streaming]);
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (envIssue) return;
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -111,6 +130,7 @@ export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   }
 
   async function addUrl() {
+    if (envIssue) return;
     const url = prompt("Page URL to ingest");
     if (!url) return;
     setBusy(true);
@@ -129,6 +149,7 @@ export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   }
 
   async function runSearch() {
+    if (envIssue) return;
     const q = prompt("Search query (uses Tavily API)");
     if (!q) return;
     setBusy(true);
@@ -147,6 +168,7 @@ export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
   }
 
   async function newSession() {
+    if (envIssue) return;
     const res = await fetch(`/api/notebooks/${notebookId}/chat/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -162,6 +184,7 @@ export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
+    if (envIssue) return;
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
@@ -236,6 +259,28 @@ export function NotebookWorkspace({ notebookId }: { notebookId: string }) {
       await loadMessages(sid);
       void loadSessions();
     }
+  }
+
+  if (envIssue) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <div className="flex items-center gap-2 text-sm text-zinc-600">
+          <Link href="/notebooks" className="hover:text-zinc-900">
+            ← Notebooks
+          </Link>
+        </div>
+        <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <h1 className="text-xl font-semibold text-zinc-900">
+            Notebook unavailable
+          </h1>
+          <p className="mt-2 text-sm text-zinc-600">
+            This deployment cannot load notebook data until the Supabase public
+            environment variables are restored.
+          </p>
+          <SupabaseSetupNotice className="mt-4" />
+        </div>
+      </div>
+    );
   }
 
   return (

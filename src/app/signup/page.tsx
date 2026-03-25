@@ -1,12 +1,15 @@
 "use client";
 
+import { SupabaseSetupNotice } from "@/components/SupabaseSetupNotice";
 import { createClient } from "@/lib/supabase/client";
+import { getSupabasePublicEnvIssue } from "@/lib/supabase/env";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SignupPage() {
   const router = useRouter();
+  const envIssue = getSupabasePublicEnvIssue();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -15,19 +18,28 @@ export default function SignupPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
-    const supabase = createClient();
-    const { error: err } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    setLoading(false);
-    if (err) {
-      setError(err.message);
+    if (envIssue) {
+      setError(envIssue);
       return;
     }
-    router.push("/notebooks");
-    router.refresh();
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      router.push("/notebooks");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not sign up.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -39,6 +51,7 @@ export default function SignupPage() {
         After sign-up, confirm your email if required by your Supabase project
         settings.
       </p>
+      {envIssue ? <SupabaseSetupNotice className="mt-4" /> : null}
       <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium text-zinc-800">
           Email
@@ -48,6 +61,7 @@ export default function SignupPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={loading || Boolean(envIssue)}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal outline-none ring-emerald-500/30 focus:border-emerald-600 focus:ring-2"
           />
         </label>
@@ -60,6 +74,7 @@ export default function SignupPage() {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={loading || Boolean(envIssue)}
             className="rounded-lg border border-zinc-300 px-3 py-2 text-base font-normal outline-none ring-emerald-500/30 focus:border-emerald-600 focus:ring-2"
           />
         </label>
@@ -70,7 +85,7 @@ export default function SignupPage() {
         ) : null}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || Boolean(envIssue)}
           className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:opacity-60"
         >
           {loading ? "Creating…" : "Sign up"}
