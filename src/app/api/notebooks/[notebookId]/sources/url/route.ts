@@ -16,18 +16,25 @@ export async function POST(req: Request, ctx: RouteContext) {
 
   const body = (await req.json()) as { url?: string };
   const url = body.url?.trim();
+  
   if (!url) {
     return NextResponse.json({ error: "url required" }, { status: 400 });
   }
 
-  let parsed: URL;
+  // Validate URL format
+  let parsedUrl: URL;
   try {
-    parsed = new URL(url);
+    parsedUrl = new URL(url);
   } catch {
-    return NextResponse.json({ error: "invalid url" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
   }
-  if (!["http:", "https:"].includes(parsed.protocol)) {
-    return NextResponse.json({ error: "only http(s) URLs" }, { status: 400 });
+
+  // Only allow http/https
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    return NextResponse.json(
+      { error: "Only http and https URLs are supported" },
+      { status: 400 }
+    );
   }
 
   const { data: source, error: srcErr } = await supabase
@@ -37,44 +44,43 @@ export async function POST(req: Request, ctx: RouteContext) {
       user_id: user.id,
       type: "url",
       title: url,
-      canonical_url: parsed.toString(),
+      canonical_url: url,
       status: "processing",
     })
     .select("id")
     .single();
 
   if (srcErr || !source) {
-    return NextResponse.json({ error: srcErr?.message ?? "insert failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: srcErr?.message ?? "insert failed" },
+      { status: 500 }
+    );
   }
 
   const sourceId = source.id;
 
   try {
-    const { title, text } = await extractTextFromUrl(parsed.toString());
-    await supabase
-      .from("sources")
-      .update({
-        title: title.slice(0, 500),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", sourceId);
-
+    const extracted = await extractTextFromUrl(url);
     const { chunkCount } = await ingestPlainText({
       supabase,
       notebookId,
       sourceId,
       userId: user.id,
-      text,
+      text: extracted.text,
     });
 
     await supabase
       .from("sources")
-      .update({ status: "ready", updated_at: new Date().toISOString() })
+      .update({
+        title: extracted.title.slice(0, 500),
+        status: "ready",
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", sourceId);
 
-    return NextResponse.json({ sourceId, chunkCount, title });
+    return NextResponse.json({ sourceId, chunkCount, url });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "fetch failed";
+    const msg = e instanceof Error ? e.message : "extract failed";
     await supabase
       .from("sources")
       .update({

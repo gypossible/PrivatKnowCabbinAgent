@@ -1,4 +1,5 @@
 import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
 
 export async function extractTextFromBuffer(
   buffer: Buffer,
@@ -19,8 +20,7 @@ export async function extractTextFromBuffer(
     lower.endsWith(".pdf") ||
     mime === "application/pdf"
   ) {
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    const parser = new PDFParse({ data: buffer });
     try {
       const result = await parser.getText();
       return result.text ?? "";

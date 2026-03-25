@@ -28,9 +28,22 @@ export default function NotebooksPage() {
         return;
       }
       const ct = res.headers.get("content-type") ?? "";
-      if (!res.ok || !ct.includes("application/json")) {
+      if (!res.ok) {
+        let msg = `Could not load notebooks (HTTP ${res.status}).`;
+        if (ct.includes("application/json")) {
+          const json = (await res.json()) as { error?: string };
+          if (json.error) msg = json.error;
+        } else {
+          const text = await res.text();
+          if (text.trim()) msg = text.slice(0, 240);
+        }
+        console.error("Failed to load notebooks:", res.status, msg);
+        setNotebooks([]);
+        return;
+      }
+      if (!ct.includes("application/json")) {
         const text = await res.text();
-        console.error("Failed to load notebooks:", res.status, text.slice(0, 200));
+        console.error("Failed to load notebooks: non-JSON response", text.slice(0, 200));
         setNotebooks([]);
         return;
       }

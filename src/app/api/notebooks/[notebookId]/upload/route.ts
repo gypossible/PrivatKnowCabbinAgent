@@ -5,6 +5,10 @@ import { ingestPlainText } from "@/lib/ingest";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
+
+// 50MB limit
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 type RouteContext = { params: Promise<{ notebookId: string }> };
 
@@ -18,6 +22,14 @@ export async function POST(req: Request, ctx: RouteContext) {
   const file = form.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "file required" }, { status: 400 });
+  }
+
+  // Check file size
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json(
+      { error: `File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
+      { status: 413 }
+    );
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
