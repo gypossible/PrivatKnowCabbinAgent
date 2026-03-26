@@ -1,10 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
+import { withRouteErrorHandling } from "@/lib/api-route";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ notebookId: string }> };
 
-export async function GET(req: Request, ctx: RouteContext) {
+export const GET = withRouteErrorHandling(async function GET(
+  req: Request,
+  ctx: RouteContext,
+) {
   const { notebookId } = await ctx.params;
   const sessionId = new URL(req.url).searchParams.get("sessionId");
   if (!sessionId) {
@@ -34,4 +38,4 @@ export async function GET(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ messages: data ?? [] });
-}
+});

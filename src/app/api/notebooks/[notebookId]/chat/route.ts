@@ -1,6 +1,7 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
+import { withRouteErrorHandling } from "@/lib/api-route";
 import { embedTexts, getOpenAI } from "@/lib/openai-server";
 import { tavilySearch } from "@/lib/tavily";
 import { toVectorLiteral } from "@/lib/vector";
@@ -17,7 +18,10 @@ type Citation = {
   excerpt: string;
 };
 
-export async function POST(req: Request, ctx: RouteContext) {
+export const POST = withRouteErrorHandling(async function POST(
+  req: Request,
+  ctx: RouteContext,
+) {
   const { notebookId } = await ctx.params;
   const supabase = await createClient();
   const user = await requireUser(supabase);
@@ -316,4 +320,4 @@ export async function POST(req: Request, ctx: RouteContext) {
       Connection: "keep-alive",
     },
   });
-}
+});

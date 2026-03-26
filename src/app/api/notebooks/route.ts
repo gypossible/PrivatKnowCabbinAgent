@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth-api";
+import { withRouteErrorHandling } from "@/lib/api-route";
 import {
   getSupabasePublicEnvIssue,
   hasSupabasePublicEnv,
 } from "@/lib/supabase/env";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export const GET = withRouteErrorHandling(async function GET() {
   if (!hasSupabasePublicEnv()) {
     return NextResponse.json(
       {
@@ -26,9 +27,9 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ notebooks: data ?? [] });
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withRouteErrorHandling(async function POST(req: Request) {
   const supabase = await createClient();
   const user = await requireUser(supabase);
   let body: { title?: string } = {};
@@ -47,4 +48,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ notebook: data });
-}
+});

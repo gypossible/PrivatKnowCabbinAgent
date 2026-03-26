@@ -1,10 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
+import { withRouteErrorHandling } from "@/lib/api-route";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ notebookId: string }> };
 
-export async function DELETE(_req: Request, ctx: RouteContext) {
+export const DELETE = withRouteErrorHandling(async function DELETE(
+  _req: Request,
+  ctx: RouteContext,
+) {
   const { notebookId } = await ctx.params;
   const supabase = await createClient();
   const user = await requireUser(supabase);
@@ -14,9 +18,12 @@ export async function DELETE(_req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function PATCH(req: Request, ctx: RouteContext) {
+export const PATCH = withRouteErrorHandling(async function PATCH(
+  req: Request,
+  ctx: RouteContext,
+) {
   const { notebookId } = await ctx.params;
   const supabase = await createClient();
   const user = await requireUser(supabase);
@@ -36,4 +43,4 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ notebook: data });
-}
+});

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
+import { withRouteErrorHandling } from "@/lib/api-route";
 import { extractTextFromUrl } from "@/lib/extract-url";
 import { ingestPlainText } from "@/lib/ingest";
 import { tavilySearch } from "@/lib/tavily";
@@ -9,7 +10,10 @@ export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ notebookId: string }> };
 
-export async function POST(req: Request, ctx: RouteContext) {
+export const POST = withRouteErrorHandling(async function POST(
+  req: Request,
+  ctx: RouteContext,
+) {
   const { notebookId } = await ctx.params;
   const supabase = await createClient();
   const user = await requireUser(supabase);
@@ -148,4 +152,4 @@ export async function POST(req: Request, ctx: RouteContext) {
   }
 
   return NextResponse.json({ results: ingested });
-}
+});

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { assertNotebookAccess, requireUser } from "@/lib/auth-api";
+import { withRouteErrorHandling } from "@/lib/api-route";
 import { extractTextFromBuffer } from "@/lib/extract-file";
 import { ingestPlainText } from "@/lib/ingest";
 import { NextResponse } from "next/server";
@@ -12,7 +13,10 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 type RouteContext = { params: Promise<{ notebookId: string }> };
 
-export async function POST(req: Request, ctx: RouteContext) {
+export const POST = withRouteErrorHandling(async function POST(
+  req: Request,
+  ctx: RouteContext,
+) {
   const { notebookId } = await ctx.params;
   const supabase = await createClient();
   const user = await requireUser(supabase);
@@ -106,4 +110,4 @@ export async function POST(req: Request, ctx: RouteContext) {
       .eq("id", sourceId);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+});
